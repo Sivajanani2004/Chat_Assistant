@@ -6,3 +6,6 @@ class chatRequest(BaseModel):
 class chatResponse(BaseModel):
     msg: str
     reply: str
+
+class ImageRequest(BaseModel):
+    prompt: str

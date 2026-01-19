@@ -10,6 +10,7 @@ st.markdown("## 🤖 AI Chat Assistant")
 
 BACKEND_URL = "http://127.0.0.1:8000"
 
+
 if "current_chat_id" not in st.session_state:
     st.session_state.current_chat_id = str(uuid.uuid4())
 
@@ -34,7 +35,7 @@ with st.sidebar:
         for chat in res.json():
             if st.button(chat["title"], key=chat["chat_id"]):
                 st.session_state.current_chat_id = chat["chat_id"]
-                hist = requests.get(f"{BACKEND_URL}/chat-history/{chat['chat_id']}")
+                hist = requests.get(f"{BACKEND_URL}/get-chat-history/{chat['chat_id']}")
                 if hist.status_code == 200:
                     st.session_state.chat_messages = hist.json()
                 st.rerun()
@@ -42,7 +43,7 @@ with st.sidebar:
     st.divider()
 
     if st.button("🗑️ Clear Current Chat"):
-        requests.delete(f"{BACKEND_URL}/chat-history/{st.session_state.current_chat_id}")
+        requests.delete(f"{BACKEND_URL}/delete-chat-history/{st.session_state.current_chat_id}")
         st.session_state.chat_messages = [{"role": "system", "content": "You are a helpful AI assistant"}]
         st.session_state.current_chat_id = str(uuid.uuid4())
         st.rerun()
@@ -86,9 +87,7 @@ if mode == "😺 Chat With AI":
         st.session_state.chat_messages.append({"role": "user", "content": user_input})
 
         response = requests.post(f"{BACKEND_URL}/chat",
-            data={
-                "msg": user_input,
-                "chat_id": st.session_state.current_chat_id},
+            data={"msg": user_input,"chat_id": st.session_state.current_chat_id},
             files={"file": file} if file else None)
 
         if response.status_code == 200:
@@ -101,22 +100,28 @@ if mode == "😺 Chat With AI":
 
 if mode == "📺 Image Generation":
 
-    HF_API_KEY = "YOUR_HF_KEY"
-    HF_URL = "Your_HF_URL"
-    headers = {"Authorization": f"Bearer {HF_API_KEY}"}
+    st.subheader("🎨 Image Generation")
 
-    prompt = st.text_area("Describe the image")
+    prompt = st.text_area("Describe the image",placeholder="A futuristic city at night, cyberpunk style")
 
     if st.button("Generate Image"):
-        res = requests.post(HF_URL, headers=headers, json={"inputs": prompt})
 
-        if res.status_code == 200 and "image" in res.headers.get("content-type", ""):
-            img = Image.open(io.BytesIO(res.content))
-            st.image(img)
-            st.download_button(
-                "Download Image",
-                data=res.content,
-                file_name="image.png",
-                mime="image/png")
+        if not prompt.strip():
+            st.warning("Please enter a prompt")
         else:
-            st.write(res.text)
+            with st.spinner("Generating image..."):
+                res = requests.post(f"{BACKEND_URL}/generate-image",json={"prompt": prompt})
+
+            if res.status_code == 200 and "image" in res.headers.get("content-type", ""):
+                img = Image.open(io.BytesIO(res.content))
+                st.image(img, caption="Generated Image", width=700)
+
+                st.download_button("⬇️ Download Image",
+                    data=res.content,
+                    file_name="generated_image.png",
+                    mime="image/png")
+            else:
+                st.error("Image generation failed")
+                st.text(res.text)
+
+
